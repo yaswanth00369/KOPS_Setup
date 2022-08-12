@@ -1,0 +1,2030 @@
+                                    KUBERNETES ===> Production-Grade Container Orchestration Engine (COE)
+                                    ====================================================================
+What is Kubernetes ?
+--------------------
+Kubernetes is also known as K8s.
+It is an open-source COE system for automating deployment, scaling, and management of containerized applications.
+The open source project is hosted by the Cloud Native Computing Foundation (CNCF).
+
+
+K8s-Release Version Information:
+-------------------------------
+v1.24
+v1.23
+v1.22
+v1.21
+v1.20
+
+
+K8S Architecture:
+-----------------
+
+            K8S Solution:           K8S Master Node Components:         K8S Worker Node Components:                        
+            ------------            --------------------------          ---------------------------
+            Kubectl                 API Service                         Kubelet(Agent)                                     
+            DashBoard               ETCD                                Kubeproxy(Firewall)                                
+            Visualizer              Schedular                           Container Runtime                                  
+                                    Controller                                                                   
+
+
+K8S SetUp Solutions:
+-------------------
+
+Single Host/Node Setup (Dev/Test Env)   ===>    Minikube 
+
+Multi Node Setup (On-Premises)          ===>    Kubeadm
+
+Cloud Setup (AWS, Azure, GCP)
+
+                            AWS         ===>    KOPS  -  (Fully Controlling Master Nodes and Worker Nodes).
+
+                            AWS         ===>    EKS   -  (AWS Managed Service, onle controlling Worker Nodes).
+                            Azure       ===>    AKS   -  (Azure Managed Service, onle controlling Worker Nodes).
+                            GCP         ===>    GKS   -  (GCP Managed Service, onle controlling Worker Nodes).
+
+
+
+=========================================================================================================================================
+
+
+
+                                                KUBERNETES ===> (With KOPS Solution)
+                                                ====================================
+
+
+
+KOPS SetUp & Launch Cluster & Validation & Troubleshooting:
+===========================================================
+
+
+STEP-1: Create IAM ROle:
+========================
+
+    (Goto AWS Console to Create IAM ROle Manually)
+    Trused Entity : EC2
+    Policies      : Administrator Access
+    Role name     : KOPS_Role
+
+
+STEP-2: Launch EC2 instance in AWS:
+===================================
+
+    (Goto AWS Console to Launch EC2 Manually)
+    IAM Role      : KOPS_Role
+    Instance type : t2.small
+    Name          : KOPS
+
+
+STEP-3: Update System and Setting Hostname: 
+===========================================
+
+    # sudo yum update -y
+    # sudo hostnamectl set-hostname kops
+    (Note: Log-out and relog-in to the session)
+
+
+STEP-4: Install KOPS (Latest Version) on Linux (EC2 Instance): 
+==============================================================
+
+    # curl -LO https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64
+    # chmod +x kops-linux-amd64
+    # sudo mv kops-linux-amd64 /usr/local/bin/kops
+
+Check the Version of KOPS:
+    # kops version  ----> [Client version: 1.24.1 (git-v1.24.1)]
+
+
+STEP-5: Install kubectl on Linux:
+=================================
+
+    # curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    # chmod +x kubectl
+    # sudo mv kubectl /usr/local/bin/kubectl
+
+Check the version of Kubectl:
+    # kubectl version --output=yaml 
+    # kubectl version --short ----> 
+        Client Version: v1.24.3
+        Kustomize Version: v4.5.4
+        The connection to the server localhost:8080 was refused - did you specify the right host or port?
+
+
+STEP-6: Create an S3 bucket to store your clusters state:
+=========================================================
+
+    # aws s3 mb s3://yaswanth1.in.k8s --region us-east-1
+    # aws s3 ls  (list buckets)
+
+
+STEP-7: Create Private Route53 Domain for your cluster:
+=======================================================
+
+    # aws route53 create-hosted-zone --name yaswanth1.in --hosted-zone-config PrivateZone=true --caller-reference 01-08-2022 --vpc VPCRegion=us-east-1,VPCId=vpc-0125ac6a26fdf34f0
+    # aws route53 list-hosted-zones  (list hosted zones)
+
+    OR
+
+    (Goto AWS Console to Create hosted zone Manually)
+    Domain name         : yaswanth1.in
+    Type                : Private hosted zone
+    Region              : us-east-1
+    VPC ID              : vpc-0125ac6a26fdf34f0 (Default VPC ID)
+
+
+STEP-8: Configure environment variables:
+========================================
+
+    # sudo vi ~/.bashrc
+
+        export KOPS_CLUSTER_NAME=yaswanth1.in
+        export KOPS_STATE_STORE=s3://yaswanth1.in.k8s
+
+    # source ~/.bashrc
+    # env | grep KOPS
+
+
+STEP-9: Create/Genarate SSH Key:
+================================
+
+    # ssh-keygen -t RSA
+    # ls -lrth ~/.ssh/
+
+
+STEP-10: Build your cluster configuration:
+==========================================
+
+    Note: Master/Node Instance type = t2.medium (2CPUs & 4GB Memory)
+    Note: By Default Launching the Master/Nodes are with Ubuntu Distribution.
+    Note: Here, We can Customize with Specific Distribution by using AMI for Launching Master/Nodes.
+    Note: AMI IDs are must be changes w.r.t AWS Regions. 
+        AMI-ID: ami-090fa75af13c156b4
+        Platform: Amazon Linux 2 AMI (HVM)
+
+        Eg: ==> # kops create cluster --master-image=<AMI-ID> --node-image=<AMI-ID>
+
+    Note: If, we don't define the AMI Information. It will assume for setup the cluster with  Ubuntu Platform by Default.
+    
+    # kops create cluster --state=${KOPS_STATE_STORE} --name=${KOPS_CLUSTER_NAME} --dns=private --master-count=1 --master-size=t2.medium --node-count=2 --node-size=t2.medium --zones=us-east-1a,us-east-1b 
+
+
+    Note: If, we define the AMI Information. It will taken that specifi AMI for setup the cluster.
+
+    # kops create cluster --state=${KOPS_STATE_STORE} --name=${KOPS_CLUSTER_NAME} --dns=private --master-count=1 --master-size=t2.medium --node-count=2 --node-size=t2.medium --master-image=ami-090fa75af13c156b4 --node-image=ami-090fa75af13c156b4 --zones=us-east-1a,us-east-1b 
+
+
+    # kops get cluster  (list clusters)
+
+
+STEP-11: Create the cluster in AWS:
+===================================
+
+    # kops update cluster --name yaswanth1.in --yes --admin
+    (It will take a few minutes to have the cluster up and running with all the services.)
+    # kops validate cluster 
+    # watch -n 1 kops validate cluster
+
+                Validating cluster yaswanth1.in
+                INSTANCE GROUPS
+                NAME                    ROLE    MACHINETYPE     MIN     MAX     SUBNETS
+                master-us-east-1a       Master  t2.medium       1       1       us-east-1a
+                nodes-us-east-1a        Node    t2.medium       1       1       us-east-1a
+                nodes-us-east-1b        Node    t2.medium       1       1       us-east-1b
+
+                NODE STATUS
+                NAME                    ROLE    READY
+                i-01bfbe87e7c90c494     master  True
+                i-0b9cc6d63d4e653cc     node    True
+                i-0e56a2d4c55e17277     node    True
+
+                Your cluster yaswanth1.in is ready
+
+    Now, Check the version of  KOPS and Kubectl:
+        # kops version
+            Client version: 1.24.1 
+        # kubectl version --short
+            Client Version: v1.24.3
+            Server Version: v1.24.3 
+
+STEP-12: Cleanup the Kops Cluster:
+
+    # kops delete cluster --name=yaswanth1.in --yes
+
+STEP-13: Kops Cluster Validation & Troubleshooting:
+===================================================
+
+    Note: If, its having in-sufficient Memory/DiskSpace Pressure/PIDs/etc....
+    Then the Cluster is not Ready and throwing Validation Error.
+
+    Possible Issues:
+    •	Nodes are not in Ready status
+    •	kube-dns is crashing constantly
+    •	Some of the systems services are not up
+
+    Troubleshooting Tips: 
+    (Check events, Check Pods & Logs)
+    
+    # kubectl get svc (or) services
+    # kubectl describe  svc <svc_name> 
+    # kubectl get nodes
+    # kubectl cluster-info
+    # kubectl get cs (or) componentstatus
+    # kubectl get events
+    # kubectl get ns (or) namespaces
+    # kubectl get pods
+    # kubectl get pods -n kube-system
+    # kubectl logs <pod> -n kube-system
+    # kubectl describe pods <pod_name> -n kube-system
+    # kubectl get all
+    # kubectl get all -n kube-system 
+    
+
+STEP-14: (ERROR) ===> You must be logged in to the server (Unauthorized):
+=========================================================================
+
+    # kubectl get svc                   (Error: You must be logged in to the server (Unauthorized)
+    # kubectl get nodes                 (Error: You must be logged in to the server (Unauthorized)
+    # kops version                      (Client version: 1.24.1 (git-v1.24.1)
+    # kubectl  version --short
+            (Client Version: v1.24.3)
+            (Error: You must be logged in to the server (the server has asked for the client to provide credentials)
+
+    # kops export kubeconfig --admin    (KOPS has set your kubectl context to yaswanth1.in)
+
+    # kubectl  version --short
+           
+            Client Version: v1.24.3
+            Server Version: v1.24.3
+
+    # kubectl get nodes
+
+            NAME                  STATUS   ROLES           AGE   VERSION
+            i-0a41ca84ab2456150   Ready    node            25h   v1.24.3
+            i-0a51cc63bd1f082f7   Ready    control-plane   25h   v1.24.3
+            i-0e1d9cbd476255e96   Ready    node            25h   v1.24.3
+
+
+=========================================================================================================================================
+
+
+
+Cloning the Complete Code required for K8S Project (From GitLab)
+================================================================
+
+
+# sudo yum install git -yaml
+# sudo yum install tree -y
+
+# git clone https://gitlab.com/rns-devops/K8s-Resources.git
+
+        username : yaswanth00369
+        password : *************
+
+# tree K8s-Resources
+
+=========================================================================================================================================
+
+
+K8S-DashBoard: ===> (Addon Utility Service to the K8S Cluster)
+==============================================================
+
+DashBoard: 
+----------
+Deploy and Access the Kubernetes Dashboard. 
+Dashboard is a web-based Kubernetes user interface.
+You can use Dashboard to deploy containerized applications to a Kubernetes cluster, troubleshoot your containerized application, and manage the cluster resources.
+
+Deploying the Dashboard UI:
+---------------------------
+
+# kubectl apply -f K8s-Resources/kubernetes/resources/dashboard.yaml
+
+            serviceaccount/kubernetes-dashboard created
+            clusterrolebinding.rbac.authorization.k8s.io/kubernetes-dashboard created
+            deployment.apps/kubernetes-dashboard created
+            service/kubernetes-dashboard created
+
+    Note: It will Create one LB Service for Accessing Dashboard from LB Endpoint. Goto AWS LB Console and Check.
+
+# kubectl get pods -n kube-system
+
+            NAME                                          READY   STATUS    RESTARTS      AGE
+
+            kubernetes-dashboard-b55554496-t47gf          1/1     Running   0             77s
+
+
+# watch -n 1 kubectl get svc -n kube-system
+
+            NAME                   TYPE           CLUSTER-IP      EXTERNAL-IP                                                              PORT(S)                  AGE
+         
+            kube-dns               ClusterIP      100.64.0.10     <none>                                                                   53/UDP,53/TCP,9153/TCP   17m
+            kubernetes-dashboard   LoadBalancer   100.71.222.79   a2799181795a84f4087f12b316986036-423635479.us-east-1.elb.amazonaws.com   80:32648/TCP             4m49s
+
+Note: By taking this Service External-IP search in Browser ---> for Accessing K8S cluster from Dashboard.
+
+    Service : kubernetes-dashboard
+    External-IP : a2799181795a84f4087f12b316986036-423635479.us-east-1.elb.amazonaws.com
+
+
+=========================================================================================================================================
+
+
+K8S-Visualizer: ===> (Addon Utility Service to the K8S Cluster)
+==============================================================
+
+
+Visualizer:
+----------
+Accessing and checking complete information which PODS are running which Nodes.
+In real-time it is used for Analysing the Runtime Environment Nodes & PODS information.
+With fast refresh rate & accessing easy from browser.
+
+Deploying the Visualizer-UI:
+---------------------------
+
+# kubectl apply -f K8s-Resources/kubernetes/resources/deploy/.
+
+            serviceaccount/kube-ops-view created
+            clusterrole.rbac.authorization.k8s.io/kube-ops-view created
+            clusterrolebinding.rbac.authorization.k8s.io/kube-ops-view created
+            deployment.apps/kube-ops-view created
+            ingress.networking.k8s.io/kube-ops-view created
+            deployment.apps/kube-ops-view-redis created
+            service/kube-ops-view-redis created
+            service/kube-ops-view created
+
+    Note: It will Create one LB Service for Accessing Dashboard from LB Endpoint. Goto AWS LB Console and Check.
+
+# watch -n 1 kubectl get pods,svc
+
+            NAME                                      READY   STATUS    RESTARTS   AGE
+            pod/kube-ops-view-549579d746-qdz9j        1/1     Running   0          3m19s
+            pod/kube-ops-view-redis-b9f499684-w5tvw   1/1     Running   0          3m19s
+
+
+            NAME                          TYPE           CLUSTER-IP      EXTERNAL-IP                                                               PORT(S)        AGE
+            service/kube-ops-view         LoadBalancer   100.64.187.53   a57d5a46a693549828c1e6f92256c289-2032204449.us-east-1.elb.amazonaws.com   80:30795/TCP   3m19s
+            service/kube-ops-view-redis   ClusterIP      100.68.244.89   <none>                                                                    6379/TCP       3m19s
+            service/kubernetes            ClusterIP      100.64.0.1      <none>                                                                    443/TCP        39m
+
+    Note: By taking this Service External-IP search in Browser ---> for Accessing K8S cluster from Dashboard.
+
+    Service : service/kube-ops-view
+    External-IP : a57d5a46a693549828c1e6f92256c289-2032204449.us-east-1.elb.amazonaws.com
+
+
+=========================================================================================================================================
+
+
+Delete PODS & services:
+=======================
+
+# kubectl delete pods <pod_name> -n <namespace>
+# kubectl delete pods <pod_name> -n <namespace> --grace-period=0 --force
+
+# kubectl delete svc <service_name> -n <namespace>
+# kubectl delete -f <url>                   ===> (If we are deploying add-on service by using url)
+# kubectl delete -f <file.yaml>             ===> (If we are deploying add-on service by using file.yaml)
+
+
+=========================================================================================================================================
+
+
+Deploying PODS:
+==============
+
+POD:
+---
+Each entity created with kubernetes is a resource including pod, service, deployments, replication controller etc. 
+Resources can be defined as YAML or JSON. Here is the syntax to create a YAML specification.
+
+Life of a pod:
+--------------
+    •	Pending : in progress
+    •	Running : successfully created
+    •	Succeeded : successfully exited
+    •	Failed  : Failed
+    •	Unknown : Error
+
+    AKMS => Resource Configs Specs
+        A   =   apiVersion:     (current_pod_version)   v1
+        K   =   kind:           (pod)                   Type of Service
+        M   =   metadata:       (pod_name)              Information about service type 
+        S   =   spec:           (container_specs)       Specifications of the service type
+
+
+
+Open one duplicate tab session for monitoring the pods and services of the cluster
+[ec2-user@kops ~]$ watch -n 1 kubectl get pod,svc
+
+
+Pod Exercises:
+==============
+    1. Pod with single container
+    2. Pod with single container & Volume
+    3. Pod with Multiple containers & Volume Sync
+
+
+1. Pod with single container:
+-----------------------------
+
+# cat k8s-code/pods/vote-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vote
+  labels:
+    app: python
+    role: vote
+    version: v1
+spec:
+  containers:
+    - name: app
+      image: gvenkat/voteapp:v1
+      ports:
+        - containerPort: 80
+          protocol: TCP
+
+# kubectl apply -f k8s-code/pods/vote-pod.yaml
+
+error: You must be logged in to the server (the server has asked for the client to provide credentials)
+
+
+# kops export kubeconfig --admin
+
+W0806 06:36:40.998959   29861 create_kubecfg.go:90] Did not find API endpoint for gossip hostname; may not be able to reach cluster
+kOps has set your kubectl context to yaswanth1.in
+
+
+# kubectl  apply -f K8s-Resources/k8s-code/pods/vote-pod.yaml
+
+pod/vote created
+
+
+POD Validation:
+--------------
+
+# kubectl logs pod/vote
+
+[2022-08-06 06:37:13 +0000] [1] [INFO] Starting gunicorn 19.10.0
+[2022-08-06 06:37:13 +0000] [1] [INFO] Listening at: http://0.0.0.0:80 (1)
+[2022-08-06 06:37:13 +0000] [1] [INFO] Using worker: sync
+[2022-08-06 06:37:13 +0000] [10] [INFO] Booting worker with pid: 10
+[2022-08-06 06:37:13 +0000] [14] [INFO] Booting worker with pid: 14
+[2022-08-06 06:37:13 +0000] [20] [INFO] Booting worker with pid: 20
+[2022-08-06 06:37:13 +0000] [21] [INFO] Booting worker with pid: 21
+
+# kubectl describe pod/vote            (In this command, we need to check the events.)
+
+ Events:
+  Type    Reason     Age    From               Message
+  ----    ------     ----   ----               -------
+  Normal  Scheduled  7m44s  default-scheduler  Successfully assigned default/vote to i-0ee49e2758714aebf
+  Normal  Pulling    7m44s  kubelet            Pulling image "gvenkat/voteapp:v1"
+  Normal  Pulled     7m41s  kubelet            Successfully pulled image "gvenkat/voteapp:v1" in 2.2604364s
+  Normal  Created    7m41s  kubelet            Created container app
+  Normal  Started    7m41s  kubelet            Started container app
+
+
+# kubectl get pods --show-labels          (In this command directly, we get the Lables of the Pod.)
+
+NAME                                      READY   STATUS    RESTARTS   AGE   LABELS
+pod/vote                                  1/1     Running   0          14m   app=python,role=vote,version=v1
+
+
+# kubectl get pods -o wide          (In this command directly, we get Pod is running on which Node & IP Of POD.)
+
+NAME      READY   STATUS    RESTARTS   AGE   IP           NODE                  NOMINATED NODE   READINESS GATES
+vote      1/1     Running   0          22m   100.96.2.6   i-0ee49e2758714aebf   <none>           <none>
+
+
+# kubectl get pod/vote -o yaml         (In this command, we need to check the Staus of the Container.)
+
+status:
+    containerStatuses:
+  - containerID: containerd://188590a8ed17820b3844a7dd22e678f5732653e56ca28c8d36b9b1e5b1de3048
+    image: docker.io/gvenkat/voteapp:v1
+    imageID: docker.io/gvenkat/voteapp@sha256:bf1ad5f02236b41907db527e173806036d3dd521b730bb564b10ea66aee15d1a
+    lastState: {}
+    name: app
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2022-08-06T06:37:13Z"
+  hostIP: 172.20.36.44
+  phase: Running
+  podIP: 100.96.2.6
+
+
+POD Troubleshooting-Tipes:
+--------------------------
+
+This will open an editor. Go to the line which defines image and change it to a tag that does not exist
+# kubectl edit pod vote
+
+    Example.
+        spec:
+        containers:
+        - image: gvenkat/vote:xyz  (wrong image)
+            imagePullPolicy: Always
+
+
+# kubectl logs pod/vote                (check the logs)
+# kubectl describe pod/vote            (check the events)
+# kubectl get pod/vote -o yaml         (check the status)
+
+
+To Access the Existing POD/Container:
+-------------------------------------
+
+# kubectl exec [POD] -- [COMMAND]         (command syntax)
+
+# kubectl exec -it vote -- sh
+/app # id
+     # ifconfig
+     # hostname
+     # hostname -i
+     # ps -ef
+     # cat /ect/*release
+     # ping google.com
+     # exit
+
+
+2. Pod with single container & Volume:
+--------------------------------------
+
+# cat K8s-Resources/k8s-code/pods/db-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db
+  labels:
+    app: postgres
+    role: database
+    tier: back
+spec:
+  containers:
+    - name: db
+      image: postgres:9.4
+      ports:
+        - containerPort: 5432
+      env:
+        - name: POSTGRES_PASSWORD
+          value: postgres
+      volumeMounts:
+      - name: db-data
+        mountPath: /var/lib/postgresql/data
+  volumes:
+  - name: db-data
+    hostPath:
+      path: /var/lib/pgdata
+      type: DirectoryOrCreate
+
+# kubectl apply -f K8s-Resources/k8s-code/pods/db-pod.yaml 
+
+pod/db created
+
+Pod Validating:
+---------------
+# kubectl logs pod/db
+# kubectl describe pod/db
+# kubectl get pod/db --show-labels
+# kubectl get pod/db -o wide    
+# kubectl get pod/db -o yaml    (Checking Everything, mainly mount volumes.)
+    
+    Container_path volume: /var/lib/postgresql/data
+    Host_path volume     : /var/lib/pgdata
+
+
+To Access the Existing POD/Container & Checking the Data Persistant or Not:
+---------------------------------------------------------------------------
+
+# kubectl exec -it db -- sh                     (Accessing)
+
+        # ls -lrth /var/lib/postgresql/data     (Data Check In Container Path)
+        total 56K
+        -rw------- 1 postgres postgres    4 Aug  6 08:19 PG_VERSION
+        drwx------ 2 postgres postgres    6 Aug  6 08:19 pg_twophase
+        # exit
+
+# ssh <user>@api.<Cluster_name>                 (Syntax for Connecting Master node)
+# ssh ubuntu@api.yaswanth1.in                   (Connect to the Master Node)
+    # exit
+
+# kubectl get pod/db -o wide                    (Check this pod is runningon which node)
+
+    NAME   READY   STATUS    RESTARTS   AGE   IP           NODE                  NOMINATED NODE   READINESS GATES
+    db     1/1     Running   0          30m   100.96.1.6   i-0b03e012636920629   <none>           <none>
+ 
+    Note:  Goto AWS EC2 Console, Check the Private IP of this  instance (i-0b03e012636920629).
+           
+           (i-0b03e012636920629 ====> 172.20.83.67)
+
+# ssh ubuntu@172.20.83.67                          (Connect to the Worker Node)
+
+    # ls -lrth /var/lib/pgdata
+    total 56K
+        -rw------- 1 postgres postgres    4 Aug  6 08:19 PG_VERSION
+        drwx------ 2 postgres postgres    6 Aug  6 08:19 pg_twophase
+    # exit
+
+Note: Finally the data has been Persistant.
+
+
+3. Pod with Multiple containers & Volume Sync:
+----------------------------------------------
+
+# cat K8s-Resources/k8s-code/pods/multi_container_pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+  labels:
+    tier: front
+    app: nginx
+    role: ui
+spec:
+  containers:
+    - name: nginx
+      image: nginx:stable-alpine
+      ports:
+        - containerPort: 80
+          protocol: TCP
+      volumeMounts:
+        - name: data
+          mountPath: /var/www/html-sample-app
+
+    - name: sync
+      image: gvenkat/sync:v1
+      volumeMounts:
+        - name: data
+          mountPath: /var/www/app
+
+  volumes:
+    - name: data
+      emptyDir: {}
+
+
+# kubectl apply -f K8s-Resources/k8s-code/pods/multi_container_pod.yaml
+
+pod/web created
+
+Pod Validating:
+---------------
+# kubectl logs pod/web              (Default Container logs are displayed)
+    Defaulted container "nginx" out of: nginx, sync  
+    # kubectl logs pod/web -c nginx  (Specific Container logs)
+    # kubectl logs pod/web -c sync   (Specific Container logs)
+# kubectl describe pod/web
+# kubectl get pod/web --show-labels
+# kubectl get pod/web -o wide    
+# kubectl get pod/web -o yaml    (Checking Everything, mainly mount volumes.)
+
+    Volume on Host machine:             EmptyDir (a temporary directory that shares a pod's lifetime)
+
+    Mounts-Point on Nginx container:    /var/www/html-sample-app from data (rw)
+    Mounts-Point on Sync container:     /var/www/app from data (rw)
+
+
+To Access the Default/Specific POD/Container & Checking the Data Sync or Not:
+---------------------------------------------------------------------
+# kubectl exec -it web -- sh                            (Default Container to Connect)
+    Defaulted container "nginx" out of: nginx, sync
+
+                Isolated:
+    / # ps -ef        or  # ps aux
+    / # cat /etc/*release    or # cat /etc/issue
+    / # id
+
+                Common/Shared:
+    / # ifconfig
+    / # hostname
+    / # df -h
+    / # ls -lrth /var/www/html-sample-app           (Volume mount point)
+        -rw-r--r--    1 root     root        8.5K Aug  9 05:38 index.html
+        drwxr-xr-x    2 root     root        4.0K Aug  9 05:38 images
+        -rw-r--r--    1 root     root      715.2K Aug  9 05:38 html5up-phantom.zip
+    / # exit    (Exit from the Nginx Container)
+
+# kubectl exec -it web -c nginx -- sh                    (Specific (Nginx) Container to Connect)
+# kubectl exec -it web -c sync -- sh                     (Specific (Sync) Container to Connect)
+
+                Isolated:
+    # ps -ef        or # ps aux
+    # cat /etc/*release    or # cat /etc/issue
+    # id
+
+                Common/Shared:
+    # hostname
+    # hostname -i
+    # df -h
+    # ls -lrth /var/www/app                             (Volume mount point)
+        -rw-r--r-- 1 root root 8.6K Aug  9 05:38 index.html
+        drwxr-xr-x 2 root root 4.0K Aug  9 05:38 images
+        -rw-r--r-- 1 root root 716K Aug  9 05:38 html5up-phantom.zip
+    # exit    (Exit from the Nginx Container)
+
+    Note: The Volume Data has been sync with in the Containers.
+
+
+Creating & Delete the Pods by using Yaml files:
+===============================================
+
+# kubectl apply -f <Yaml files path>                (Create PODS)
+
+# kubectl apply -f K8s-Resources/k8s-code/pods/.        
+    pod/db created
+    pod/vote created
+    pod/web created
+
+
+# kubectl delete -f <Yaml files path>               (Delete PODS)
+
+# kubectl delete -f K8s-Resources/k8s-code/pods/.
+    pod "db" deleted
+    pod "web" deleted
+    pod "vote" deleted
+
+
+=========================================================================================================================================
+
+
+K8S KUBE Configure File & Namespace:
+====================================
+
+
+How the Kubectl gets connect to the cluster & Authentication:
+-------------------------------------------------------------
+
+If the Kube config file has corrupted, we can't connect to the cluster.
+We need to BackUp of this Kube config file.
+This is Very Important file for kops cluster.
+
+    1. Cluster URLs required
+    2. UN/PWD required
+    3. Default Namespace required
+
+
+
+# cat ~/.kube/config  (or)
+
+# kubectl config view
+
+    apiVersion: v1
+    clusters:
+    - cluster:
+        certificate-authority-data: DATA+OMITTED
+        server: https://api.yaswanth1.in
+    name: yaswanth1.in
+    contexts:
+    - context:
+        cluster: yaswanth1.in
+        user: yaswanth1.in
+    name: yaswanth1.in
+    current-context: yaswanth1.in
+    kind: Config
+    preferences: {}
+    users:
+    - name: yaswanth1.in
+    user:
+        client-certificate-data: REDACTED
+        client-key-data: REDACTED
+
+
+# kubectl config --help
+
+    Available Commands:
+    current-context   Display the current-context
+    delete-cluster    Delete the specified cluster from the kubeconfig
+    delete-context    Delete the specified context from the kubeconfig
+    delete-user       Delete the specified user from the kubeconfig
+    get-clusters      Display clusters defined in the kubeconfig
+    get-contexts      Describe one or many contexts
+    get-users         Display users defined in the kubeconfig
+    rename-context    Rename a context from the kubeconfig file
+    set               Set an individual value in a kubeconfig file
+    set-cluster       Set a cluster entry in kubeconfig
+    set-context       Set a context entry in kubeconfig
+    set-credentials   Set a user entry in kubeconfig
+    unset             Unset an individual value in a kubeconfig file
+    use-context       Set the current-context in a kubeconfig file
+    view              Display merged kubeconfig settings or a specified kubeconfig file
+
+    Usage:
+    kubectl config SUBCOMMAND [options]
+
+
+
+# kubectl config get-clusters
+
+# kubectl config get-users
+
+# kubectl config current-context
+
+# kubectl config get-contexts
+
+CURRENT   NAME           CLUSTER        AUTHINFO       NAMESPACE
+*         yaswanth1.in   yaswanth1.in   yaswanth1.in 
+
+# kubectl get pods
+No resources found in default namespace.
+
+
+Create Namespace & Set As Default:
+----------------------------------
+
+# kubectl create ns instavote    (Direct Command)   (or)
+namespace/instavote created
+
+# cat K8s-Resources/k8s-code/projects/instavote/instavote-ns.yaml 
+
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+        name: instavote
+
+# kubectl apply -f  K8s-Resources/k8s-code/projects/instavote/instavote-ns.yaml     (By using Yaml file)
+namespace/instavote created
+
+
+# kubectl config set-context $(kubectl config current-context) --namespace instavote        (Set Default Namespace is instavote)
+Context "yaswanth1.in" modified.
+
+# kubectl config get-contexts
+
+CURRENT   NAME           CLUSTER        AUTHINFO       NAMESPACE
+*         yaswanth1.in   yaswanth1.in   yaswanth1.in   instavot
+
+# kubectl get pods
+No resources found in instavote namespace.
+
+
+Note: If we want to deploy some pods in specific namespace(not in default). We need to define NS in MetaData Section.
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+        namespace: <Specific_NS>
+        ------------------------
+        name: web
+
+
+=========================================================================================================================================
+
+
+
+Replication:
+============
+
+Replication is the superset of Pod.
+The main object of this Replication is to maintain the High Availability, Scaling, Load Balancing.
+Atleast min 2 or more Pods Launched on Atleast min 2 or more Worker Nodes.
+
+Replication is 2 types:
+    1. Replication Controller       (Ensures that the specified no.of pod replicas running at any one time )- Older
+    2. Replication Sets             (Next-generation of Controller, it supports new set-based labels selector) - Latest & Currently used.
+
+The Important Sections in the Yaml file for deploying Replication.
+•	replicas
+•	minReadySeconds
+•	selector
+•	template (pod spec )
+
+
+Making application high available with Replication Controllers.
+If you are not running a monitoring screen, start it in a new terminal with the following command.
+
+#  watch -n 1 kubectl get pod,rs,svc --show-labels
+
+# cat K8s-Resources/k8s-code/projects/instavote/dev/vote-rs.yaml
+
+        apiVersion: apps/v1
+        kind: ReplicaSet
+        metadata:
+            name: vote
+            namespace: instavote
+        spec:
+            replicas: 5
+            minReadySeconds: 20
+            selector:
+                matchLabels:
+                role: vote
+                matchExpressions:
+                - {key: version, operator: In, values: [v1, v2, v3]}
+            template:
+                metadata:
+                    name: vote
+                    labels:
+                        app: python
+                        role: vote
+                        version: v1
+                spec:
+                    containers:
+                        - name: app
+                        image: gvenkat/voteapp:v1
+                        ports:
+                            - containerPort: 80
+                            protocol: TCP
+
+# kubectl apply -f  K8s-Resources/k8s-code/projects/instavote/dev/vote-rs.yaml
+replicaset.apps/vote created
+
+# kubectl get pods,rs --show-labels
+
+    NAME             READY   STATUS    RESTARTS   AGE   LABELS
+    pod/vote-9f8hg   1/1     Running   0          43m   app=python,role=vote,version=v1
+    pod/vote-qsjqp   1/1     Running   0          43m   app=python,role=vote,version=v1
+    pod/vote-tg49v   1/1     Running   0          43m   app=python,role=vote,version=v1
+    pod/vote-tt2cd   1/1     Running   0          43m   app=python,role=vote,version=v1
+    pod/vote-zfz8k   1/1     Running   0          43m   app=python,role=vote,version=v1
+
+    NAME                   DESIRED   CURRENT   READY   AGE   LABELS
+    replicaset.apps/vote   5         5         5       43m   <none>
+
+# kubectl describe replicaset.apps/vote
+
+    Name:         vote
+    Namespace:    instavote
+    Selector:     role=vote,version in (v1,v2,v3)
+    Labels:       <none>
+    Annotations:  <none>
+    Replicas:     5 current / 5 desired
+    Pods Status:  5 Running / 0 Waiting / 0 Succeeded / 0 Failed
+    Pod Template:
+    Labels:  app=python
+            role=vote
+            version=v1
+    Containers:
+    app:
+        Image:        gvenkat/voteapp:v1
+        Port:         80/TCP
+        Host Port:    0/TCP
+        Environment:  <none>
+        Mounts:       <none>
+    Volumes:        <none>
+    Events:
+    Type    Reason            Age   From                   Message
+    ----    ------            ----  ----                   -------
+    Normal  SuccessfulCreate  45m   replicaset-controller  Created pod: vote-tg49v
+    Normal  SuccessfulCreate  45m   replicaset-controller  Created pod: vote-tt2cd
+    Normal  SuccessfulCreate  45m   replicaset-controller  Created pod: vote-9f8hg
+    Normal  SuccessfulCreate  45m   replicaset-controller  Created pod: vote-qsjqp
+    Normal  SuccessfulCreate  45m   replicaset-controller  Created pod: vote-zfz8k
+
+
+# sudo vi K8s-Resources/k8s-code/projects/instavote/dev/vote-rs.yaml        (Change the Image Version)
+
+        apiVersion: apps/v1
+        kind: ReplicaSet
+        metadata:
+        name: vote
+        namespace: instavote
+        spec:
+        replicas: 5
+        minReadySeconds: 20
+        selector:
+            matchLabels:
+            role: vote
+            matchExpressions:
+            - {key: version, operator: In, values: [v1, v2, v3]}
+        template:
+            metadata:
+            name: vote
+            labels:
+                app: python
+                role: vote
+                version: v2
+            spec:
+            containers:
+                - name: app
+                image: gvenkat/voteapp:v2
+                ports:
+                    - containerPort: 80
+                    protocol: TCP
+
+
+# kubectl apply -f  K8s-Resources/k8s-code/projects/instavote/dev/vote-rs.yaml
+replicaset.apps/vote configured
+
+# kubectl describe replicaset.apps/vote     (Check the configurations has been changed or not)
+
+        Name:         vote
+        Namespace:    instavote
+        Selector:     role=vote,version in (v1,v2,v3)
+        Labels:       <none>
+        Annotations:  <none>
+        Replicas:     5 current / 5 desired
+        Pods Status:  5 Running / 0 Waiting / 0 Succeeded / 0 Failed
+        Pod Template:
+        Labels:  app=python
+                role=vote
+                version=v2
+        Containers:
+        app:
+            Image:        gvenkat/voteapp:v2
+            Port:         80/TCP
+            Host Port:    0/TCP
+            Environment:  <none>
+            Mounts:       <none>
+        Volumes:        <none>
+        Events:
+        Type    Reason            Age   From                   Message
+        ----    ------            ----  ----                   -------
+        Normal  SuccessfulCreate  50m   replicaset-controller  Created pod: vote-tg49v
+        Normal  SuccessfulCreate  50m   replicaset-controller  Created pod: vote-tt2cd
+        Normal  SuccessfulCreate  50m   replicaset-controller  Created pod: vote-9f8hg
+        Normal  SuccessfulCreate  50m   replicaset-controller  Created pod: vote-qsjqp
+        Normal  SuccessfulCreate  50m   replicaset-controller  Created pod: vote-zfz8k
+
+
+# kubectl get pods,rs --show-labels
+
+    NAME             READY   STATUS    RESTARTS   AGE   LABELS
+    pod/vote-9f8hg   1/1     Running   0          52m   app=python,role=vote,version=v1
+    pod/vote-qsjqp   1/1     Running   0          52m   app=python,role=vote,version=v1
+    pod/vote-tg49v   1/1     Running   0          52m   app=python,role=vote,version=v1
+    pod/vote-tt2cd   1/1     Running   0          52m   app=python,role=vote,version=v1
+    pod/vote-zfz8k   1/1     Running   0          52m   app=python,role=vote,version=v1
+
+    NAME                   DESIRED   CURRENT   READY   AGE   LABELS
+    replicaset.apps/vote   5         5         5       52m   <none>
+
+Note: Here, Does not update automatically with latest configurations.
+      If, we are deleting pods manually, it will replacing pods with latest configurations.
+      Check it given below.
+
+# kubectl delete pod vote-9f8hg vote-qsjqp vote-tg49v       (Delete 1st 3 Pods.)
+
+    pod "vote-9f8hg" deleted
+    pod "vote-qsjqp" deleted
+    pod "vote-tg49v" deleted  
+
+# kubectl get pods,rs --show-labels
+
+    NAME             READY   STATUS    RESTARTS   AGE   LABELS
+    pod/vote-c4ccs   1/1     Running   0          92s   app=python,role=vote,version=v2
+    pod/vote-jx79h   1/1     Running   0          92s   app=python,role=vote,version=v2
+    pod/vote-k6zwd   1/1     Running   0          92s   app=python,role=vote,version=v2
+    pod/vote-tt2cd   1/1     Running   0          58m   app=python,role=vote,version=v1
+    pod/vote-zfz8k   1/1     Running   0          58m   app=python,role=vote,version=v1
+
+    NAME                   DESIRED   CURRENT   READY   AGE   LABELS
+    replicaset.apps/vote   5         5         5       58m   <none>
+
+    Note: Here, we can see that 1st 3 pods are replaced with latest configurations automatically.
+
+Note: The main limitation of this Replic Set is Not applicable for automatically updating pods with latest configuration.
+
+
+=====================================================================================================================================
+
+
+Services:
+=========
+
+# watch -n 1 kubectl get pods,svc,rs,deploy --show-labels        (Monitoring in duplicate session)
+
+Deploy Vote Service:
+--------------------
+
+# cat K8s-Resources/k8s-code/projects/instavote/dev/vote-svc.yaml 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote
+  labels:
+    role: vote
+  namespace: instavote
+spec:
+  selector:
+    role: vote
+  ports:
+    - port: 80
+      targetPort: 80
+      #nodePort: 30000
+  type: LoadBalancer
+
+# kubectl apply -f K8s-Resources/k8s-code/projects/instavote/dev/vote-svc.yaml
+service/vote created
+
+
+# kubectl get po,rs,svc --show-labels
+
+    NAME           TYPE           CLUSTER-IP      EXTERNAL-IP                                                              PORT(S)        AGE     LABELS
+    service/vote   LoadBalancer   100.69.229.80   a9e00076439254ef69453a127e0fc3b1-888553161.us-east-1.elb.amazonaws.com   80:31162/TCP   3m12s   role=vote
+
+    Note: It will create one Classic Load Balancer for accessing this Vote App.
+
+# kubectl describe service/vote         (Here, we need to check the mainly Endpoints & Events)
+
+
+Deploying Redis Pod:
+--------------------
+
+# cat K8s-Resources/k8s-code/projects/instavote/dev/redis-deploy.yaml 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: instavote
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      tier: back
+      role: redis
+  minReadySeconds: 10
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: redis
+        tier: back
+        version: latest
+    spec:
+      containers:
+      - image: gvenkat/redis:latest
+        imagePullPolicy: Always
+        name: redis
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+      restartPolicy: Always
+
+# kubectl apply -f K8s-Resources/k8s-code/projects/instavote/dev/redis-deploy.yaml 
+deployment.apps/redis created
+
+
+# kubectl get pods,svc,rs,deploy --show-labels
+# kubectl describe deployment.apps/redis                   (Check the Events)
+
+Deploying Redis Service:
+------------------------
+
+# cat K8s-Resources/k8s-code/projects/instavote/dev/redis-svc.yaml 
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: redis
+    tier: back
+  name: redis
+  namespace: instavote
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    protocol: TCP
+    targetPort: 6379
+    
+
+# kubectl apply -f K8s-Resources/k8s-code/projects/instavote/dev/redis-svc.yaml 
+service/redis created
+
+# kubectl get pods,svc,rs,deploy --show-labels
+# kubectl describe service/redis                      (Check the Endpoints)
+
+
+Note: Here, Now we can Vote, it will be receiving by using Redis Cache system Service.
+
+
+======================================================================================================================================
+
+
+Deployment:
+===========
+
+A Deployment is responsible for creating & updating instances of your application.
+Deployment controller is continuously monitoring those instances.
+If the instances are down or is deleted, the Deployment controller is replaces those instances.
+It provides a self-healing mechanism to address machine failure or maintenance. 
+
+Main objects:
+-------------
+Create a deployment app.    (Deploying an App)
+Update a deployment app.    (Deploying a new version App)
+Rolling Updates.            (Zero Downtime Deployment)
+Roll Back.                  (To Previous Version)
+Pause/Resume a deployment.  (Roll-Out to Certain Percentage)
+
+# kubectl delete -f K8s-Resources/k8s-code/projects/instavote/dev/vote-rs.yaml      (Delete the Vote RS)
+replicaset.apps "vote" deleted
+
+# sudo rm -rf K8s-Resources/k8s-code/projects/instavote/dev/vote-rs.yaml            (Delete the vote-rs.yaml file)
+
+# watch -n 1 kubectl get pods,rs,deploy,svc --show-labels                           (Open Duplicate Session & Apply for Monitoring)
+
+
+Deploying Vote-Component:
+-------------------------
+
+# cat K8s-Resources/k8s-code/projects/instavote/dev/vote-deploy.yaml 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote
+  namespace: instavote
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  revisionHistoryLimit: 4
+  paused: false
+  replicas: 10
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v2
+    spec:
+      containers:
+        - name: app
+          image: gvenkat/voteapp:v2
+          ports:
+            - containerPort: 80
+              protocol: TCP
+
+
+# kubectl apply -f  K8s-Resources/k8s-code/projects/instavote/dev/vote-deploy.yaml
+deployment.apps/vote created
+
+Note: Here, Deployment is not Directly managing PODS.
+            It is internally managing one Replicaset.
+            Replicaset having one unique Hash-Code, The Same Hash-code is using Pods.
+            That is (pod-template-hash=6c9784cb46), This is very Important For RollingUpdate & Roll Back.
+            
+
+
+# kubectl get pods,rs,deploy,svc --show-labels
+
+NAME                        READY   STATUS    RESTARTS   AGE     LABELS
+pod/vote-6c9784cb46-5shv8   1/1     Running   0          4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-7g6jt   1/1     Running   0          4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-8phlv   1/1     Running   0          2m47s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-dp59x   1/1     Running   0          2m47s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-h7pqg   1/1     Running   0          4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-hwj5c   1/1     Running   0          4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-lccrb   1/1     Running   0          4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-m8sxs   1/1     Running   0          4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-n6wzt   1/1     Running   0          4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-xrdg5   1/1     Running   0          4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+
+NAME                              DESIRED   CURRENT   READY   AGE     LABELS
+replicaset.apps/vote-6c9784cb46   10        10        10      4m36s   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+                                                                                ------------------------------
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE     LABELS
+deployment.apps/vote   10/10   10           10          4m36s   <none>
+
+NAME           TYPE           CLUSTER-IP     EXTERNAL-IP                                                              PORT(S)        AGE   LABELS
+service/vote   LoadBalancer   100.66.28.31   a3d84143f155b42cbb03410c71809964-442293219.us-east-1.elb.amazonaws.com   80:32440/TCP   19h   role=vote
+
+Note: We are accessing the Vote App by using LB Service External IP search in Browser.
+
+
+# kubectl describe deployment.apps/vote
+# kubectl describe replicaset.apps/vote-6c9784cb46
+# kubectl describe service/vote
+
+# kubectl scale deployment.apps/vote --replicas=5       (Scaling The RS Value=5 on the CLI Based.)
+deployment.apps/vote scaled
+
+# kubectl get pods,rs,deploy,svc --show-labels          (Check the scaling Command is apply or not.)                                                             
+
+NAME                        READY   STATUS    RESTARTS   AGE   LABELS
+pod/vote-6c9784cb46-7g6jt   1/1     Running   0          20m   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-hwj5c   1/1     Running   0          20m   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-lccrb   1/1     Running   0          20m   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-m8sxs   1/1     Running   0          20m   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+pod/vote-6c9784cb46-n6wzt   1/1     Running   0          20m   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+
+NAME                              DESIRED   CURRENT   READY   AGE   LABELS
+replicaset.apps/vote-6c9784cb46   5         5         5       20m   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+deployment.apps/vote   5/5     5            5           20m   <none>
+
+NAME           TYPE           CLUSTER-IP     EXTERNAL-IP                                                              PORT(S)        AGE   LABELS
+service/vote   LoadBalancer   100.66.28.31   a3d84143f155b42cbb03410c71809964-442293219.us-east-1.elb.amazonaws.com   80:32440/TCP   20h   role=vote
+
+
+# kubectl scale deployment.apps/vote --replicas=0      (RS Value=0)
+deployment.apps/vote scaled
+
+# kubectl scale deployment.apps/vote --replicas=10     (RS Value=10)
+deployment.apps/vote scaled
+
+# kubectl rollout history deployment.apps/vote          (History of the Revisions)
+
+deployment.apps/vote 
+REVISION  CHANGE-CAUSE
+1         <none>
+
+# kubectl rollout history deployment.apps/vote --revision=1     (Check the Template of this Revision)
+
+deployment.apps/vote with revision #1
+Pod Template:
+  Labels:       app=python
+        pod-template-hash=6c9784cb46
+        role=vote
+        version=v2
+  Containers:
+   app:
+    Image:      gvenkat/voteapp:v2
+    Port:       80/TCP
+    Host Port:  0/TCP
+    Environment:        <none>
+    Mounts:     <none>
+  Volumes:      <none>
+
+
+# sudo vi K8s-Resources/k8s-code/projects/instavote/dev/vote-deploy.yaml        (Rolling Update with V3 )
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote
+  namespace: instavote
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  revisionHistoryLimit: 4
+  paused: false
+  replicas: 10
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v2
+    spec:
+      containers:
+        - name: app
+          image: gvenkat/voteapp:v2
+          ports:
+            - containerPort: 80
+              protocol: TCP
+
+Note: The Updating Strategy is 2:1. 2 New Pods Launched then 1 Old pod terminated.
+
+# kubectl apply -f  K8s-Resources/k8s-code/projects/instavote/dev/vote-deploy.yaml
+deployment.apps/vote configured
+
+Note: Here,  deployment.apps/vote configured with seperate RS (replicaset.apps/vote-79f9dfcdc4)
+             All the pods having this hash-code id (replicaset.apps/vote-79f9dfcdc4)
+
+# kubectl get pods,rs,deploy,svc --show-labels                                                                             
+
+NAME                        READY   STATUS    RESTARTS   AGE     LABELS
+pod/vote-79f9dfcdc4-5ctnx   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-7qtzr   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-8q8f8   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-8vwhd   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-d94vj   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-fdwps   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-g5qkj   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-gw5sn   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-hxgqv   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-j5qv4   1/1     Running   0          3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+
+NAME                              DESIRED   CURRENT   READY   AGE     LABELS
+replicaset.apps/vote-6c9784cb46   0         0         0       36m     app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+replicaset.apps/vote-79f9dfcdc4   10        10        10      3m33s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+deployment.apps/vote   10/10   10           10          36m   <none>
+
+NAME           TYPE           CLUSTER-IP     EXTERNAL-IP                                                              PORT(S)        AGE   LABELS
+service/vote   LoadBalancer   100.66.28.31   a3d84143f155b42cbb03410c71809964-442293219.us-east-1.elb.amazonaws.com   80:32440/TCP   20h   role=vote
+
+
+# kubectl rollout  history deployment.apps/vote
+
+deployment.apps/vote 
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+# kubectl rollout  history deployment.apps/vote --revision=2
+
+deployment.apps/vote with revision #2
+Pod Template:
+  Labels:       app=python
+        pod-template-hash=79f9dfcdc4
+        role=vote
+        version=v3
+  Containers:
+   app:
+    Image:      gvenkat/voteapp:v3
+    Port:       80/TCP
+    Host Port:  0/TCP
+    Environment:        <none>
+    Mounts:     <none>
+  Volumes:      <none>
+
+
+# sudo vi K8s-Resources/k8s-code/projects/instavote/dev/vote-deploy.yaml        (Rolling Update with xyz Version )
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote
+  namespace: instavote
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  revisionHistoryLimit: 4
+  paused: false
+  replicas: 10
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v3
+    spec:
+      containers:
+        - name: app
+          image: gvenkat/voteapp:xyz
+          ports:
+            - containerPort: 80
+              protocol: TCP
+
+
+# kubectl apply -f  K8s-Resources/k8s-code/projects/instavote/dev/vote-deploy.yaml
+deployment.apps/vote configured
+
+
+# kubectl get pods,rs,deploy,svc --show-labels                                                                             
+
+NAME                        READY   STATUS             RESTARTS   AGE   LABELS
+pod/vote-79f9dfcdc4-2fm5w   1/1     Running            0          10m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-82ddc   1/1     Running            0          11m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-cpbr5   1/1     Running            0          11m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-cq29c   1/1     Running            0          11m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-kdkr8   1/1     Running            0          10m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-l8sm5   1/1     Running            0          10m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-rd75r   1/1     Running            0          11m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-tstkw   1/1     Running            0          10m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-vrgdf   1/1     Running            0          11m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-b7d6c6699-5glvl    0/1     ImagePullBackOff   0          45s   app=python,pod-template-hash=b7d6c6699,role=vote,version=v3
+pod/vote-b7d6c6699-g74w6    0/1     ImagePullBackOff   0          45s   app=python,pod-template-hash=b7d6c6699,role=vote,version=v3
+pod/vote-b7d6c6699-rxc2k    0/1     ImagePullBackOff   0          45s   app=python,pod-template-hash=b7d6c6699,role=vote,version=v3
+
+NAME                              DESIRED   CURRENT   READY   AGE   LABELS
+replicaset.apps/vote-6c9784cb46   0         0         0       78m   app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+replicaset.apps/vote-79f9dfcdc4   9         9         9       45m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+replicaset.apps/vote-b7d6c6699    3         3         0       45s   app=python,pod-template-hash=b7d6c6699,role=vote,version=v3
+
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+deployment.apps/vote   9/10    3            9           78m   <none>
+
+NAME           TYPE           CLUSTER-IP     EXTERNAL-IP                                                              PORT(S)        AGE   LABELS
+service/vote   LoadBalancer   100.66.28.31   a3d84143f155b42cbb03410c71809964-442293219.us-east-1.elb.amazonaws.com   80:32440/TCP   21h   role=vote
+
+
+
+Note: Here,  deployment.apps/vote configured with seperate RS (replicaset.apps/vote-b7d6c6699)
+             All the pods having this hash-code id (pod-template-hash=b7d6c6699)
+             But, it is Error: ImagePullBackOff
+
+
+# kubectl rollout  history deployment.apps/vote
+
+deployment.apps/vote 
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+3         <none>
+
+# kubectl rollout  history deployment.apps/vote --revision=3
+
+deployment.apps/vote with revision #3
+Pod Template:
+  Labels:       app=python
+        pod-template-hash=b7d6c6699
+        role=vote
+        version=v3
+  Containers:
+   app:
+    Image:      gvenkat/voteapp:xyz
+    Port:       80/TCP
+    Host Port:  0/TCP
+    Environment:        <none>
+    Mounts:     <none>
+  Volumes:      <none>
+
+
+# kubectl rollout undo deployment.apps/vote --to-revision=2         ( Roll back to the Previous Version : V3)
+deployment.apps/vote rolled back
+
+
+# kubectl get pods,rs,deploy,svc --show-labels                                                 
+
+NAME                        READY   STATUS    RESTARTS   AGE   LABELS
+pod/vote-79f9dfcdc4-2fm5w   1/1     Running   0          18m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-82ddc   1/1     Running   0          18m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-cpbr5   1/1     Running   0          18m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-cq29c   1/1     Running   0          18m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-kdkr8   1/1     Running   0          18m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-l8sm5   1/1     Running   0          18m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-prtxv   1/1     Running   0          68s   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-rd75r   1/1     Running   0          19m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-tstkw   1/1     Running   0          17m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+pod/vote-79f9dfcdc4-vrgdf   1/1     Running   0          19m   app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+
+NAME                              DESIRED   CURRENT   READY   AGE     LABELS
+replicaset.apps/vote-6c9784cb46   0         0         0       86m     app=python,pod-template-hash=6c9784cb46,role=vote,version=v2
+replicaset.apps/vote-79f9dfcdc4   10        10        10      53m     app=python,pod-template-hash=79f9dfcdc4,role=vote,version=v3
+replicaset.apps/vote-b7d6c6699    0         0         0       8m14s   app=python,pod-template-hash=b7d6c6699,role=vote,version=v3
+
+NAME                   READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
+deployment.apps/vote   10/10   10           10          86m   <none>
+
+NAME           TYPE           CLUSTER-IP     EXTERNAL-IP                                                              PORT(S)        AGE   LABELS
+service/vote   LoadBalancer   100.66.28.31   a3d84143f155b42cbb03410c71809964-442293219.us-east-1.elb.amazonaws.com   80:32440/TCP   21h   role=vote
+
+
+
+# kubectl rollout  history deployment.apps/vote
+
+deployment.apps/vote 
+REVISION  CHANGE-CAUSE
+1         <none>
+3         <none>
+4         <none>
+
+
+# kubectl rollout  history deployment.apps/vote --revision=4
+
+deployment.apps/vote with revision #4
+Pod Template:
+  Labels:       app=python
+        pod-template-hash=79f9dfcdc4
+        role=vote
+        version=v3
+  Containers:
+   app:
+    Image:      gvenkat/voteapp:v3
+    Port:       80/TCP
+    Host Port:  0/TCP
+    Environment:        <none>
+    Mounts:     <none>
+  Volumes:      <none>
+
+
+
+# kubectl delete -f K8s-Resources/k8s-code/projects/instavote/dev/.         (Delete the all Components)
+
+# kubectl get pods,rs,deploy,svc --show-labels
+No resources found in instavote namespace.
+
+
+Note:   (Imprtant Commands For Deployment)
+
+# kubectl get pods,rs,deploy,svc --show-labels
+# kubectl scale deployment.apps/vote --replicas=5
+# kubectl rollout  history deployment.apps/vote
+# kubectl rollout  history deployment.apps/vote --revision=3
+# kubectl rollout undo deployment.apps/vote --to-revision=2
+
+
+========================================================================================================================================
+
+
+
+Finally Deploying Voting Application:
+=====================================
+
+    1.Voting Component
+    2.Redis Component
+    3.Worker Component
+    4.Database Component
+    5.Result Component
+
+
+# watch -n 1 kubectl get pods,rs,deploy,svc --show-labels      (In Duplicate Session)    
+
+#  ll K8s-Resources/k8s-code/projects/instavote/dev/
+
+    total 36
+    -rw-rw-r-- 1 ec2-user ec2-user 579 Aug 11 12:12 db-deploy.yaml
+    -rw-rw-r-- 1 ec2-user ec2-user 209 Aug 10 05:49 db-svc.yaml
+    -rw-rw-r-- 1 ec2-user ec2-user 525 Aug 10 05:49 redis-deploy.yaml
+    -rw-rw-r-- 1 ec2-user ec2-user 217 Aug 10 05:49 redis-svc.yaml
+    -rw-rw-r-- 1 ec2-user ec2-user 684 Aug 10 05:49 results-deploy.yaml
+    -rw-rw-r-- 1 ec2-user ec2-user 239 Aug 10 05:49 results-svc.yaml
+    -rw-rw-r-- 1 ec2-user ec2-user 669 Aug 12 09:08 vote-deploy.yaml
+    -rw-rw-r-- 1 ec2-user ec2-user 222 Aug 11 12:02 vote-svc.yaml
+    -rw-rw-r-- 1 ec2-user ec2-user 599 Aug 10 05:49 worker-deploy.yaml
+
+
+1. Voting Componet Deployment:
+------------------------------
+
+# cd K8s-Resources/k8s-code/projects/instavote/dev/
+
+# cat vote-deploy.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote
+  namespace: instavote
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  revisionHistoryLimit: 4
+  paused: false
+  replicas: 4
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v1
+    spec:
+      containers:
+        - name: app
+          image: gvenkat/voteapp:v1
+          ports:
+            - containerPort: 80
+              protocol: TCP
+
+# cat vote-svc.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote
+  labels:
+    role: vote
+  namespace: instavote
+spec:
+  selector:
+    role: vote
+  ports:
+    - port: 80
+      targetPort: 80
+      #nodePort: 30000
+  type: LoadBalancer
+
+
+# kubectl apply -f vote-deploy.yaml
+deployment.apps/vote created
+
+# kubectl apply -f vote-svc.yaml 
+service/vote created
+
+
+2. Redis Componet Deployment:
+-----------------------------
+
+# cat redis-deploy.yaml 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: instavote
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      tier: back
+      role: redis
+  minReadySeconds: 10
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: redis
+        tier: back
+        version: latest
+    spec:
+      containers:
+      - image: gvenkat/redis:latest
+        imagePullPolicy: Always
+        name: redis
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+      restartPolicy: Always
+
+
+# cat redis-svc.yaml 
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: redis
+    tier: back
+  name: redis
+  namespace: instavote
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    protocol: TCP
+    targetPort: 6379
+
+
+# kubectl apply -f redis-deploy.yaml 
+deployment.apps/redis created
+
+# kubectl apply -f redis-svc.yaml 
+service/redis created
+
+
+3. Worker Componet Deployment:
+------------------------------
+
+# cat worker-deploy.yaml 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: instavote
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  revisionHistoryLimit: 4
+  paused: false
+  replicas: 2
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: worker
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: worker
+      labels:
+        app: java
+        role: worker
+        version: v2
+    spec:
+      containers:
+        - name: worker
+          image: gvenkat/workerapp
+
+
+# kubectl apply -f worker-deploy.yaml 
+deployment.apps/worker created 
+
+
+4. Database Componet Deployment:
+--------------------------------
+
+# cat db-deploy.yaml 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: instavote
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      tier: back
+      app: postgres
+  minReadySeconds: 10
+  template:
+    metadata:
+      labels:
+        app: postgres
+        role: db
+        tier: back
+        version: "9.4"
+    spec:
+      containers:
+      - image: gvenkat/postgres #postgres:9.4
+        imagePullPolicy: Always
+        name: db
+        env:
+          - name: POSTGRES_PASSWORD
+            value: postgres
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+
+
+# cat db-svc.yaml 
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: db
+    tier: back
+  name: db
+  namespace: instavote
+spec:
+  selector:
+    role: db
+  ports:
+  - port: 5432
+    protocol: TCP
+    targetPort: 5432
+
+# kubectl apply -f db-deploy.yaml 
+deployment.apps/db created
+
+# kubectl apply -f db-svc.yaml 
+service/db created
+
+
+5. Result Componet Deployment:
+------------------------------
+
+# cat results-deploy.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: results
+  namespace: instavote
+spec: 
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  revisionHistoryLimit: 4
+  paused: false
+  replicas: 4
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: results
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: results
+      labels:
+        app: nodejs
+        role: results
+        version: v1
+    spec:
+      containers:
+        - name: app
+          image: gvenkat/resultapp:v1
+          ports:
+            - containerPort: 80
+              protocol: TCP
+
+
+# cat results-svc.yaml 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: results 
+  labels: 
+    role: results
+  namespace: instavote
+spec:
+  selector:
+    role: results
+  ports:
+    - port: 80
+      targetPort: 80
+      #nodePort: 32000
+  type: LoadBalancer
+
+
+# kubectl apply -f results-deploy.yaml 
+deployment.apps/results created
+
+# kubectl apply -f results-svc.yaml 
+service/results created
+
+
+Note: Monitoring All Components with Single Command.
+
+# kubectl get pods,rs,deploy,svc --show-labels
+
+
+NAME                           READY   STATUS    RESTARTS   AGE     LABELS
+pod/db-54fc6d696-2t59q         1/1     Running   0          6m14s   app=postgres,pod-template-hash=54fc6d696,role=db,tier=back,version=9.4
+pod/db-54fc6d696-cwkc4         1/1     Running   0          6m14s   app=postgres,pod-template-hash=54fc6d696,role=db,tier=back,version=9.4
+pod/redis-7b944dd6b-pr67j      1/1     Running   0          9m34s   app=redis,pod-template-hash=7b944dd6b,role=redis,tier=back,version=latest
+pod/redis-7b944dd6b-vbkj8      1/1     Running   0          9m34s   app=redis,pod-template-hash=7b944dd6b,role=redis,tier=back,version=latest
+pod/results-6cc49f4f6b-5ndtq   1/1     Running   0          4m20s   app=nodejs,pod-template-hash=6cc49f4f6b,role=results,version=v1
+pod/results-6cc49f4f6b-gdqhd   1/1     Running   0          4m20s   app=nodejs,pod-template-hash=6cc49f4f6b,role=results,version=v1
+pod/results-6cc49f4f6b-rslt4   1/1     Running   0          4m20s   app=nodejs,pod-template-hash=6cc49f4f6b,role=results,version=v1
+pod/results-6cc49f4f6b-vjh22   1/1     Running   0          4m20s   app=nodejs,pod-template-hash=6cc49f4f6b,role=results,version=v1
+pod/vote-69465475d6-dwzrh      1/1     Running   0          15m     app=python,pod-template-hash=69465475d6,role=vote,version=v1
+pod/vote-69465475d6-lgmbg      1/1     Running   0          15m     app=python,pod-template-hash=69465475d6,role=vote,version=v1
+pod/vote-69465475d6-sf89r      1/1     Running   0          15m     app=python,pod-template-hash=69465475d6,role=vote,version=v1
+pod/vote-69465475d6-vcbpn      1/1     Running   0          15m     app=python,pod-template-hash=69465475d6,role=vote,version=v1
+pod/worker-5b75968df4-fd52r    1/1     Running   0          7m49s   app=java,pod-template-hash=5b75968df4,role=worker,version=v2
+pod/worker-5b75968df4-wpqfj    1/1     Running   0          7m49s   app=java,pod-template-hash=5b75968df4,role=worker,version=v2
+
+NAME                                 DESIRED   CURRENT   READY   AGE     LABELS
+replicaset.apps/db-54fc6d696         2         2         2       6m14s   app=postgres,pod-template-hash=54fc6d696,role=db,tier=back,version=9.4
+replicaset.apps/redis-7b944dd6b      2         2         2       9m34s   app=redis,pod-template-hash=7b944dd6b,role=redis,tier=back,version=latest
+replicaset.apps/results-6cc49f4f6b   4         4         4       4m20s   app=nodejs,pod-template-hash=6cc49f4f6b,role=results,version=v1
+replicaset.apps/vote-69465475d6      4         4         4       15m     app=python,pod-template-hash=69465475d6,role=vote,version=v1
+replicaset.apps/worker-5b75968df4    2         2         2       7m49s   app=java,pod-template-hash=5b75968df4,role=worker,version=v2
+
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE     LABELS
+deployment.apps/db        2/2     2            2           6m14s   <none>
+deployment.apps/redis     2/2     2            2           9m34s   <none>
+deployment.apps/results   4/4     4            4           4m20s   <none>
+deployment.apps/vote      4/4     4            4           15m     <none>
+deployment.apps/worker    2/2     2            2           7m49s   <none>
+
+NAME              TYPE           CLUSTER-IP      EXTERNAL-IP                                                               PORT(S)        AGE     LABELS
+service/db        ClusterIP      100.71.75.124   <none>                                                                    5432/TCP       6m7s    role=db,tier=back
+service/redis     ClusterIP      100.70.79.213   <none>                                                                    6379/TCP       9m28s   role=redis,tier=back
+service/results   LoadBalancer   100.64.218.4    ad800f4ae46dd4884ab3cbc5f706138a-191216922.us-east-1.elb.amazonaws.com    80:30885/TCP   4m15s   role=results
+service/vote      LoadBalancer   100.67.187.2    ab222bfba91214888bf5989add6ce578-1263945118.us-east-1.elb.amazonaws.com   80:31927/TCP   14m     role=vote
+
+
+
+Note:  (Accessing the Apps By using  service/vote & service/results EXTERNAL-IPs)
+
+1. Accessing Vote App:
+
+    URL: ab222bfba91214888bf5989add6ce578-1263945118.us-east-1.elb.amazonaws.com
+
+2. Accessing Result App:
+
+    URL: ad800f4ae46dd4884ab3cbc5f706138a-191216922.us-east-1.elb.amazonaws.com
+
+
+Note:   (Overviwe Of The Kubernetes)
+
+1. CONTAINERS are taken from Docker-Hub Images
+2. POD is SuperSet of CONTAINERS
+3. REPLICASET is SuperSet of POD
+4. DEPLOYMENT is SuperSet of REPLICASET
+5. Finally, SERVICE is Accessing to your Application.  
+
+
+
+
+Note: In K8S, Mainly DEPLOYMENT & SERVICE is very Important & Recommended.
+
+
+
+
+Prepared By     ===>        Yaswanth
